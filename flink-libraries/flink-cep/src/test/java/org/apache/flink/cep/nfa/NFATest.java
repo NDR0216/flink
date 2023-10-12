@@ -35,13 +35,16 @@ import org.junit.Test;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.apache.flink.cep.utils.NFAUtils.compile;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
 /** Tests for {@link NFA}. */
@@ -204,6 +207,19 @@ public class NFATest extends TestLogger {
 
     @Test
     public void testNFASerialization() throws Exception {
+        final Comparator<ComputationState> computationStateComparator =
+                Comparator.<ComputationState>comparingLong(
+                                c ->
+                                        c.getStartEventID() != null
+                                                ? c.getStartEventID().getTimestamp()
+                                                : Long.MAX_VALUE)
+                        .thenComparingInt(
+                                c ->
+                                        c.getStartEventID() != null
+                                                ? c.getStartEventID().getId()
+                                                : Integer.MAX_VALUE)
+                        .thenComparingInt(c -> c.hashCode());
+
         Pattern<Event, ?> pattern1 =
                 Pattern.<Event>begin("start")
                         .where(SimpleCondition.of(value -> value.getName().equals("a")))
@@ -305,7 +321,22 @@ public class NFATest extends TestLogger {
             NFAState copy =
                     serializer.duplicate().deserialize(new DataInputViewStreamWrapper(bais));
             bais.close();
-            assertEquals(nfaState, copy);
+
+            ComputationState[] nfaStatePartialMatches =
+                    nfaState.getPartialMatches().toArray(new ComputationState[0]);
+            Arrays.sort(nfaStatePartialMatches, computationStateComparator);
+            ComputationState[] copyPartialMatches =
+                    copy.getPartialMatches().toArray(new ComputationState[0]);
+            Arrays.sort(copyPartialMatches, computationStateComparator);
+            ComputationState[] nfaStateCompletedMatches =
+                    nfaState.getCompletedMatches().toArray(new ComputationState[0]);
+            Arrays.sort(nfaStateCompletedMatches, computationStateComparator);
+            ComputationState[] copyCompletedMatches =
+                    copy.getCompletedMatches().toArray(new ComputationState[0]);
+            Arrays.sort(copyCompletedMatches, computationStateComparator);
+
+            assertArrayEquals(nfaStatePartialMatches, copyPartialMatches);
+            assertArrayEquals(nfaStateCompletedMatches, copyCompletedMatches);
         }
     }
 
