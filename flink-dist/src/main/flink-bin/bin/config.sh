@@ -159,6 +159,7 @@ DEFAULT_ENV_JAVA_OPTS_JM=""                         # Optional JVM args (JobMana
 DEFAULT_ENV_JAVA_OPTS_TM=""                         # Optional JVM args (TaskManager)
 DEFAULT_ENV_JAVA_OPTS_HS=""                         # Optional JVM args (HistoryServer)
 DEFAULT_ENV_JAVA_OPTS_CLI=""                        # Optional JVM args (Client)
+DEFAULT_ENV_JAVA_OPTS_SQL_GATEWAY=""                # Optional JVM args (Sql-Gateway)
 DEFAULT_ENV_SSH_OPTS=""                             # Optional SSH parameters running in cluster mode
 DEFAULT_YARN_CONF_DIR=""                            # YARN Configuration Directory, if necessary
 DEFAULT_HADOOP_CONF_DIR=""                          # Hadoop Configuration Directory, if necessary
@@ -184,6 +185,7 @@ KEY_ENV_JAVA_OPTS_JM="env.java.opts.jobmanager"
 KEY_ENV_JAVA_OPTS_TM="env.java.opts.taskmanager"
 KEY_ENV_JAVA_OPTS_HS="env.java.opts.historyserver"
 KEY_ENV_JAVA_OPTS_CLI="env.java.opts.client"
+KEY_ENV_JAVA_OPTS_SQL_GATEWAY="env.java.opts.sql-gateway"
 KEY_ENV_SSH_OPTS="env.ssh.opts"
 KEY_HIGH_AVAILABILITY="high-availability.type"
 KEY_ZK_HEAP_MB="zookeeper.heap.mb"
@@ -332,6 +334,12 @@ if [ -z "${FLINK_ENV_JAVA_OPTS}" ]; then
 
     # Remove leading and ending double quotes (if present) of value
     FLINK_ENV_JAVA_OPTS="-XX:+IgnoreUnrecognizedVMOptions $( echo "${FLINK_ENV_JAVA_OPTS}" | sed -e 's/^"//'  -e 's/"$//' )"
+
+    JAVA_SPEC_VERSION=`${JAVA_HOME}/bin/java -XshowSettings:properties 2>&1 | grep "java.specification.version" | cut -d "=" -f 2 | tr -d '[:space:]' | rev | cut -d "." -f 1 | rev`
+    if [[ $(( $JAVA_SPEC_VERSION > 17 )) == 1 ]]; then
+      # set security manager property to allow calls to System.setSecurityManager() at runtime
+      FLINK_ENV_JAVA_OPTS="$FLINK_ENV_JAVA_OPTS -Djava.security.manager=allow"
+    fi
 fi
 
 if [ -z "${FLINK_ENV_JAVA_OPTS_JM}" ]; then
@@ -356,6 +364,12 @@ if [ -z "${FLINK_ENV_JAVA_OPTS_CLI}" ]; then
     FLINK_ENV_JAVA_OPTS_CLI=$(readFromConfig ${KEY_ENV_JAVA_OPTS_CLI} "${DEFAULT_ENV_JAVA_OPTS_CLI}" "${YAML_CONF}")
     # Remove leading and ending double quotes (if present) of value
     FLINK_ENV_JAVA_OPTS_CLI="$( echo "${FLINK_ENV_JAVA_OPTS_CLI}" | sed -e 's/^"//'  -e 's/"$//' )"
+fi
+
+if [ -z "${FLINK_ENV_JAVA_OPTS_SQL_GATEWAY}" ]; then
+    FLINK_ENV_JAVA_OPTS_SQL_GATEWAY=$(readFromConfig ${KEY_ENV_JAVA_OPTS_SQL_GATEWAY} "${DEFAULT_ENV_JAVA_OPTS_SQL_GATEWAY}" "${YAML_CONF}")
+    # Remove leading and ending double quotes (if present) of value
+    FLINK_ENV_JAVA_OPTS_SQL_GATEWAY="$( echo "${FLINK_ENV_JAVA_OPTS_SQL_GATEWAY}" | sed -e 's/^"//'  -e 's/"$//' )"
 fi
 
 if [ -z "${FLINK_SSH_OPTS}" ]; then
